@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use Pólya Pipeline in your work, please cite it as below."
+title: "Pólya Pipeline"
+abstract: >-
+  Counts and generates the distinct derivatives of an aromatic molecule obtained by
+  replacing ring CH groups with other atoms, using Pólya's enumeration theorem, with
+  IUPAC position numbering and 3D geometries / Gaussian 16 inputs for every derivative.
+type: software
+authors:
+  - given-names: Jorge
+    family-names: Tena Martínez
+version: 1.0.0
+date-released: 2026-10-20
+license: MIT
+keywords:
+  - Pólya enumeration theorem
+  - aromatic derivatives
+  - symmetry
+  - cheminformatics
+  - RDKit
+  - Gaussian

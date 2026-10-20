@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Results produced by the program (recreated on every run)
+generated_files/
+
+# Editor and tool folders
+.vscode/
+.idea/
+.claude/
+.codex/
+.impeccable/
+
+# Operating system
+Thumbs.db
+.DS_Store

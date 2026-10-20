@@ -1,0 +1,21 @@
+# ==============================================================================
+# Requirements to run Pólya Pipeline (derivatives.py / derivatives_gui.py)
+# ==============================================================================
+#
+# 1. Python 3.8 or newer (tested with Python 3.14)
+#    - Download: https://www.python.org/downloads/
+#    - On Windows, tick "Add python.exe to PATH" during installation,
+#      otherwise PolyaPipeline.bat will not find Python.
+#    - Tkinter (used by the GUI) is included with the standard Windows and macOS
+#      installers. On Linux install it with the system package manager
+#      (e.g. sudo apt install python3-tk).
+#
+# 2. Python packages (listed below). Install them with:
+#        python -m pip install -r requirements.txt
+#
+# Tested with: numpy 2.5.3, rdkit 2026.03.6, pillow 12.3.0
+# ==============================================================================
+
+numpy>=1.20
+rdkit>=2022.03
+pillow>=8.2           # molecule drawings and icons in the GUI (ImageTk, rounded shapes)

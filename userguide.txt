@@ -1,0 +1,209 @@
+# ==============================================================================
+# 			Pólya Pipeline user guide
+# ==============================================================================
+#
+# Version 1.0.0 · Jorge Tena Martínez · MIT License (free to use, modify and share; see LICENSE)
+#
+# Pólya Pipeline counts and generates the derivatives of an aromatic molecule obtained by
+# replacing ring CH groups with other atoms (N, P, [O+]…), using Pólya's enumeration theorem.
+#
+# Pólya Pipeline consists of two scripts: derivatives.py and derivatives_gui.py.
+#
+# derivatives.py is the engine where all the math and chem calculations are done:
+# 1. Reads the SMILES and builds a 3D geometry with RDKit.
+# 2. Finds the symmetry operations from that geometry.
+# 3. Works out the symmetry again from the molecular graph and checks that both cycle indices Z(G) match.
+# 4. Expands Pólya's polynomial to count how many distinct derivatives exist.
+# 5. Lists one example of each derivative and builds its SMILES.
+# 6. Writes the .xyz files to generated_files/xyz/<name>/ and, if asked, the Gaussian 16 input
+#    files (.gjf) to generated_files/gaussian/<name>/.
+# 7. Prints the results table.
+# 8. Saves the results table as a .csv file to generated_files/tables/.
+#
+# derivatives_gui.py is the tool that offers a visual and graphic window that makes using Pólya Pipeline easier.
+#
+# All the produced files are saved in the generated_files folder in the Pólya Pipeline directory,
+# no matter which folder the program is launched from.
+#
+# ==============================================================================
+# 			Installation
+# ==============================================================================
+#
+# 1. Install Python 3.8 or newer (on Windows, tick "Add python.exe to PATH").
+# 2. Download the Pólya Pipeline folder and unzip it anywhere.
+# 3. Open a terminal in the Pólya Pipeline folder and run:
+#        python -m pip install -r requirements.txt
+# 4. Start it: double-click PolyaPipeline.bat (Windows) or run  python derivatives_gui.py
+#    (macOS / Linux, or any terminal).
+#
+# ==============================================================================
+# 			Using the graphic window (GUI)
+# ==============================================================================
+#
+# Double-click PolyaPipeline.bat. The form on the left has three groups:
+#
+# Molecule
+# - SMILES of the parent molecule. If it cannot be used, the reason is shown in red under the
+#   field (e.g. "Cannot read this SMILES…", "Impossible valence…").
+# - Name for the files: used for the folder and file names. Empty = molecular formula.
+# Substitution
+# - Atoms that replace a ring CH: comma-separated one-atom SMILES (N, P, N,P, [O+], [N+]…).
+#   Atoms that make only one bond (F, Cl, Br, I, H) cannot sit in a ring and are refused.
+# - Max. substituents per derivative: empty = no limit. Use it for large molecules. The hint
+#   under it shows how many substitution patterns the run will check; it turns amber when
+#   the run is large enough to take minutes.
+# Output files
+# - .xyz geometries: one 3D geometry per derivative. Untick it to only count and list them.
+# - Gaussian 16 inputs (.gjf): one Gaussian input per derivative. The field below it is the route
+#   line (default "#b3lyp/6-311++G(d,p) opt freq"); it can be edited when the option is ticked
+#   and must start with "#".
+# "Show advanced options" opens two more settings:
+# - Symmetry tolerance (Å): how far an atom may be from its symmetric position in the 3D check
+#   (default 0.15). Raise it (e.g. 0.20) if that check disagrees.
+# - Distinguish formal charges: treat e.g. N and [N+] as different atoms when finding the symmetry.
+#
+# A field with a problem turns its hint red and the Run button stays disabled until it is fixed.
+#
+# The right side shows:
+# - The molecule, with its substitution positions numbered exactly as in the "Positions" column
+#   of the results (IUPAC numbering when possible; see "Position numbering" below). The text
+#   under the drawing says which numbering is used. If only the ring positions are substituted
+#   (e.g. toluene), "Use numbered SMILES" writes the numbered SMILES in the field.
+# - Before the first run: three examples (pyridine, naphthalene, toluene) that fill in the form.
+# - A summary of the run: how many derivatives (or distinct compounds, when duplicates were
+#   merged), the Pólya count, the symmetry check and the files written. "Open this run's files"
+#   opens the folder of this run and "Copy SMILES" copies the selected SMILES (or all of them).
+# - Two tabs: "Derivatives", the table (click a column title to sort it; Ctrl+C copies the
+#   SMILES of the selected rows), and "Log", the full output of the program. With a single
+#   substituent the table leaves out the per-atom count and the "N:" before the positions.
+#   "Equivalent patterns" = how many ways of placing the substituents give the same derivative
+#   by symmetry (the "Patterns" column of the CSV).
+# - Click a row of the table to draw that derivative instead of the parent: it keeps the parent's
+#   layout and numbering, and the replaced atoms are shaded. "Show the parent molecule" (or Esc)
+#   goes back to the parent.
+# If you change any input after a run, the summary says "Inputs changed since this run" until
+# you run again.
+#
+# Running again with the same name and substituents asks before replacing the earlier files.
+#
+# Keys: Enter = Run, Esc = cancel a run (or go back to the parent molecule), F1 = open this
+# guide, Ctrl+C = copy the SMILES of the selected rows.
+# "All results" opens the generated_files folder. "User guide" opens this guide in its own
+# window, with the sections listed on the left and a Find box (Ctrl+F; Enter = next match).
+#
+# ==============================================================================
+# 			Using the terminal
+# ==============================================================================
+#
+#     python derivatives.py --smiles "c1ccccc1" --subst N
+#     python derivatives.py --smiles "c1ccc2ccccc2c1" --subst N,P
+#     python derivatives.py --smiles "c1ccccc1" --subst N --max-subst 2 --no-xyz
+#     python derivatives.py --smiles "c1ccccc1" --name benzene --subst N
+#     python derivatives.py --smiles "c1ccccc1" --subst N --gaussian
+#     python derivatives.py --smiles "c1ccccc1" --subst N --gaussian --route "#m062x/def2tzvp opt freq"
+#     python derivatives.py --draw "n1ccccc1"
+#
+# Options:
+#   --smiles, -s        SMILES of the parent molecule (asked for if omitted).
+#   --name, -n          Name for the output files (default: molecular formula).
+#   --subst, -u         Comma-separated substituents (default: N).
+#   --max-subst         Maximum number of substituents per derivative.
+#   --tol, -t           Symmetry tolerance in Å (default: 0.15).
+#   --no-xyz            Do not generate the .xyz files.
+#   --gaussian          Also generate Gaussian 16 input files (.gjf).
+#   --route "ROUTE"     Route line of the .gjf files (default: "#b3lyp/6-311++G(d,p) opt freq").
+#   --respect-charges   Do not ignore formal charges when finding the symmetry.
+#   --draw SMILES       Draw a SMILES and exit.
+#   --help              Show all options.
+#
+# ==============================================================================
+# 			Substituents and positions
+# ==============================================================================
+#
+# - Each substituent is written as a one-atom SMILES that replaces a ring CH: N, P, B… Charged
+#   atoms go in brackets, e.g. [N+] or [O+]. A neutral O or S cannot replace a CH of a
+#   six-membered aromatic ring (use [O+], [S+]); those derivatives are listed as "invalid
+#   structure (valence)". F, Cl, Br, I make only one bond and are refused.
+# - By default every aromatic CH position can be substituted. If the molecule also has CH outside
+#   the aromatic rings (e.g. the CH3 of toluene), those are left as they are: only the ring CH
+#   are substituted, and the program prints the SMILES with those positions numbered (in the GUI,
+#   "Use numbered SMILES" writes it in the field), e.g. toluene:
+#       Cc1[cH:6][cH:5][cH:4][cH:3][cH:2]1
+#   (A molecule with no aromatic CH uses every CH.)
+# - To choose the positions yourself, number them with atom maps in the SMILES. Only the mapped
+#   atoms are substituted and the numbers are used as position labels, e.g. the two para
+#   positions of benzene:
+#       [cH:1]1cc[cH:2]cc1
+#   This is also the way to substitute a CH3: number it together with the ring positions.
+#
+# Position numbering
+# - The positions are labelled with the IUPAC locants of the parent molecule, so "N: 2,4" can be
+#   written straight into a name or a report:
+#     · single rings: the senior heteroatom is 1 (O > S > N > P…), then the lowest locants go to
+#       the heteroatoms and then to the existing substituents (toluene: CH3 at 1, ortho = 2 and 6);
+#     · fused rings: the standard numbering of naphthalene, quinoline, isoquinoline, azulene,
+#       indole, benzofuran, benzothiophene, anthracene, phenanthrene and pyrene;
+#     · separate ring systems (e.g. biphenyl): the second one gets primes (2′, 3′…).
+# - Each derivative is shown with the equivalent pattern that has the lowest locants.
+# - A ring system not in that list (e.g. 1,5-naphthyridine) is numbered 1, 2, 3… by the program.
+#   The GUI and the log then say "program numbering, not IUPAC": do not use those numbers as
+#   IUPAC locants.
+# - Positions numbered in the SMILES with atom maps ([cH:1]…) keep your numbers.
+# - If a substituent is the same element as a heteroatom of the ring (e.g. N on pyridine), some
+#   substitution patterns give the same compound. The duplicates are removed automatically and
+#   the program shows both numbers: Pólya patterns and distinct compounds. The "Patterns" column
+#   of the kept derivative then includes the patterns of the removed ones.
+#
+# ==============================================================================
+# 			Output files
+# ==============================================================================
+#
+# generated_files/
+#   xyz/<name>/<name>_<substituents>_001.xyz        one 3D geometry per derivative
+#   gaussian/<name>/<name>_<substituents>_001.gjf   one Gaussian 16 input per derivative (optional)
+#   tables/<name>_<substituents>.csv                the results table (opens in Excel)
+#
+# The number in each .xyz/.gjf file name is the "#" column of the results table.
+# Runs with different substituents do not overwrite each other. Running the same molecule with the
+# same substituents again replaces the old files.
+#
+# The second line of each .xyz file is "charge = q; mult = m". Geometries are optimised with MMFF,
+# or with UFF when MMFF has no parameters for the molecule. The .xyz and .gjf of a derivative
+# contain the same geometry.
+#
+# Each .gjf file has the standard Gaussian input layout:
+#     #b3lyp/6-311++G(d,p) opt freq          route line
+#                                            (blank)
+#     benzene_N_001  c1ccccc1                title: file name and SMILES of the derivative
+#                                            (blank)
+#     0 1                                    charge and multiplicity
+#     C            0.80710  -1.13647   0.01843
+#     ...                                    one line per atom (symbol, x, y, z in Å)
+#                                            (blank line at the end, required by Gaussian)
+# The charge and the multiplicity are worked out from the SMILES of each derivative.
+#
+# Results table columns:
+#   #           derivative number
+#   Subs        total number of substituents
+#   # X         number of substituents of type X
+#   Patterns    how many substitution patterns give this derivative (orbit size, plus the
+#               patterns of any removed duplicate)
+#   Positions   labels of the substituted positions
+#   SMILES      SMILES of the derivative
+#
+# ==============================================================================
+# 			Troubleshooting
+# ==============================================================================
+#
+# - The 3D check only compares the H atoms of the substitution positions, so CH3, OH or NH
+#   hydrogens do not affect it.
+#   "ℹ The 3D geometry is less symmetric than the graph": twisted rings (e.g. biphenyl) or a
+#   distortion of the force field. Only a note: the graph symmetry is used and the results are
+#   correct.
+#   "⚠ The indices do NOT match": the 3D symmetry does not fit the graph at all. The graph symmetry
+#   is used anyway; try another tolerance (e.g. --tol 0.20).
+#   "[3D] skipped": some positions you numbered carry more than one H (e.g. a CH3).
+# - "invalid structure (valence)": that substitution is chemically impossible and no .xyz is written.
+# - Very slow runs: the number of patterns grows very quickly with the number of positions and
+#   substituents. Use --max-subst (or the Max. subst. field) to limit it.
+# - "python is not recognized": Python is not in the PATH. Reinstall it ticking "Add python.exe to PATH".
